@@ -275,10 +275,10 @@ const playVideo = async (url) => {
     }
   });
 
-  // 每 30 秒保存一次进度
+  // 每 5 秒保存一次
   artplayer.value.on('video:timeupdate', () => {
     const currentTime = artplayer.value.currentTime;
-    if (Math.floor(currentTime) % 30 === 0 && currentTime > 0) {
+    if (Math.floor(currentTime) % 5 === 0 && currentTime > 0) {
       watchProgressStore.updateProgress(
         route.params.id,
         currentPlayUrl.value,
