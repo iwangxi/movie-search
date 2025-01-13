@@ -26,6 +26,6 @@ const isDetailPage = computed(() => route.name === 'movie-detail')
 }
 
 .el-main {
-  --el-main-padding: 5px 20px;
+  --el-main-padding: 5px 0 0 0;
 }
 </style> 
