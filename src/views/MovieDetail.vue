@@ -23,6 +23,8 @@
       <div class="xl:w-[20%] flex flex-col h-[calc(100vh-3.5rem)] bg-[#18171d] border-l border-[#2b2b2b] mt-[400px] xl:mt-14 xl:ml-auto">
         <!-- 影片信息 -->
         <div class="p-4 border-b border-[#2b2b2b]">
+          <!-- 影片名称 -->
+          <h2 class="text-white text-lg font-medium">{{ movieDetails.name }}</h2>
           <div class="flex items-center gap-2 mb-3">
             <div class="flex items-center text-[#00be06]">
               <el-rate
