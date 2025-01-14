@@ -23,6 +23,8 @@
       <div class="xl:w-[20%] flex flex-col h-[calc(100vh-3.5rem)] bg-[#18171d] border-l border-[#2b2b2b] mt-[400px] xl:mt-14 xl:ml-auto">
         <!-- 影片信息 -->
         <div class="p-4 border-b border-[#2b2b2b]">
+          <!-- 影片名称 -->
+          <h2 class="text-white text-lg font-medium">{{ movieDetails.name }}</h2>
           <div class="flex items-center gap-2 mb-3">
             <div class="flex items-center text-[#00be06]">
               <el-rate
@@ -104,6 +106,7 @@ import { ArrowLeft, ArrowDown } from '@element-plus/icons-vue'
 import axios from 'axios'
 import Artplayer from 'artplayer'
 import Hls from 'hls.js'
+import { useWatchProgressStore } from '../stores/watchProgress'
 
 const route = useRoute()
 const router = useRouter()
@@ -157,6 +160,9 @@ const fetchMovieDetails = async () => {
   }
 }
 
+// 添加 store 实例
+const watchProgressStore = useWatchProgressStore()
+
 // 播放视频
 const playVideo = async (url) => {
   currentPlayUrl.value = url
@@ -165,7 +171,9 @@ const playVideo = async (url) => {
     artplayer.value.destroy()
   }
 
-  // 初始化播放器
+  // 获取保存的进度
+  const savedProgress = watchProgressStore.getProgress(route.params.id, url)
+
   artplayer.value = new Artplayer({
     container: artplayerRef.value,
     url,
@@ -190,6 +198,32 @@ const playVideo = async (url) => {
     subtitleOffset: true,
     miniProgressBar: true,
     playsInline: true,
+    loop: true,
+    autoOrientation: true,
+    layers: [
+      {
+        name: 'playbackRecord',
+        html: `
+          <div class="art-layer-playback-record" style="display: none;">
+            <div class="art-auto-playback-last">上次看到 ${Math.floor(savedProgress / 60)}:${String(Math.floor(savedProgress % 60)).padStart(2, '0')}</div>
+            <div class="art-auto-playback-jump">继续播放</div>
+            <div class="art-auto-playback-close">
+              <i class="art-icon art-icon-close">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24">
+                  <path fill="currentColor" d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+                </svg>
+              </i>
+            </div>
+          </div>
+        `,
+        style: {
+          position: 'absolute',
+          bottom: '60px',
+          left: '20px',
+          zIndex: 30,
+        },
+      },
+    ],
     customType: {
       m3u8: function (video, url) {
         if (Hls.isSupported()) {
@@ -210,6 +244,48 @@ const playVideo = async (url) => {
       },
     },
   })
+
+  // 在播放器初始化后设置事件监听
+  artplayer.value.on('ready', () => {
+    if (savedProgress > 0) {
+      const $layer = artplayer.value.template.$layer;
+      const $record = $layer.querySelector('.art-layer-playback-record');
+      
+      if ($record) {
+        $record.style.display = 'flex';
+        
+        // 使用 events.proxy 来代理点击事件
+        artplayer.value.events.proxy($record.querySelector('.art-auto-playback-jump'), 'click', () => {
+          artplayer.value.seek = savedProgress;
+          artplayer.value.play();
+          $record.style.display = 'none';
+        });
+
+        artplayer.value.events.proxy($record.querySelector('.art-auto-playback-close'), 'click', () => {
+          $record.style.display = 'none';
+        });
+
+        // 视频开始播放后自动隐藏提示
+        artplayer.value.once('video:timeupdate', () => {
+          setTimeout(() => {
+            $record.style.display = 'none';
+          }, 5000);
+        });
+      }
+    }
+  });
+
+  // 每 5 秒保存一次
+  artplayer.value.on('video:timeupdate', () => {
+    const currentTime = artplayer.value.currentTime;
+    if (Math.floor(currentTime) % 5 === 0 && currentTime > 0) {
+      watchProgressStore.updateProgress(
+        route.params.id,
+        currentPlayUrl.value,
+        currentTime
+      );
+    }
+  });
 }
 
 // 响应式处理
@@ -276,5 +352,43 @@ onBeforeUnmount(() => {
   .art-video-player {
     aspect-ratio: 16/9;
   }
+}
+
+.art-auto-playback-last {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.art-auto-playback-jump {
+  color: #00be06;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 2px;
+  transition: background-color 0.3s;
+}
+
+.art-auto-playback-jump:hover {
+  background: rgba(0, 190, 6, 0.1);
+}
+
+.art-auto-playback-close {
+  cursor: pointer;
+  opacity: 0.8;
+  transition: opacity 0.3s;
+}
+
+.art-auto-playback-close:hover {
+  opacity: 1;
+}
+
+.art-layer-playback-record {
+  background: rgba(0, 0, 0, 0.8);
+  border-radius: 4px;
+  padding: 12px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 14px;
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 </style> 
